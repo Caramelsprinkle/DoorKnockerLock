@@ -22,12 +22,12 @@
 //  7. Debug
 //    log the sequence saved and sequence recorded into Serial
 
-#define PIEZO_SENSOR_PIN A0 // Outputs electrical signal from vibrations
-#define BUTTON 9 //
-#define YELLOW_LED_PIN 11
-#define GREEN_LED_PIN 12
-#define RED_LED_PIN 13
-#define SERVO_PIN 10
+#define PIEZO_SENSOR_PIN A0     // Outputs electrical signal from vibrations
+#define REDO_SEQUENCE_BUTTON 9  // Button sets listening state
+#define KNOCK_LED_PIN 11        // Yellow LED : Lights up when Piezo recognizes knocks
+#define SUCCESS_LED_PIN 12      // Green LED  : Lights up when sequence is correct   
+#define FAILURE_LED_PIN 13      // Red LED    : Lights up when sequence is incorrect
+#define SERVO_PIN 10            // Considered as "Locked" at 90 deg and "Unlocked" at 0
 
 Servo myServo;
 
@@ -57,22 +57,22 @@ unsigned long lastTimeButtonChanged = millis();
 void setup() {
   // put your setup code here, to run once:
   myServo.attach(SERVO_PIN);
-  pinMode(YELLOW_LED_PIN, OUTPUT);
-  pinMode(RED_LED_PIN, OUTPUT);
-  pinMode(GREEN_LED_PIN, OUTPUT);
-  pinMode(BUTTON, INPUT);
+  pinMode(KNOCK_LED_PIN, OUTPUT);
+  pinMode(FAILURE_LED_PIN, OUTPUT);
+  pinMode(SUCCESS_LED_PIN, OUTPUT);
+  pinMode(REDO_SEQUENCE_BUTTON, INPUT);
   Serial.begin(9600);
 
-  digitalWrite(GREEN_LED_PIN, HIGH);
+  digitalWrite(SUCCESS_LED_PIN, HIGH);
   myServo.write(0);
   Serial.println("Unlocked State");
 }
 
 bool checkForKnock(int knockValue) {
   if (knockValue > quietKnock && knockValue < loudKnock) {
-    digitalWrite(YELLOW_LED_PIN, HIGH);
+    digitalWrite(KNOCK_LED_PIN, HIGH);
     delay(20);
-    digitalWrite(YELLOW_LED_PIN, LOW);
+    digitalWrite(KNOCK_LED_PIN, LOW);
     //Serial.print("Knock value: ");
     //Serial.println(knockValue);
     return true;
@@ -88,7 +88,7 @@ void loop() {
   unsigned long timeNow = millis();
 
   if (locked == false || timeNow - lastTimeLocked >= 10000) {
-    buttonValue = digitalRead(BUTTON);
+    buttonValue = digitalRead(REDO_SEQUENCE_BUTTON);
     
     if (timeNow - lastTimeButtonChanged >= debounceDelay) {
       if (buttonValue == HIGH && timeNow - lastTimeLocked >= lockDelay) {
@@ -96,8 +96,8 @@ void loop() {
         lastTimeLocked = timeNow;
 
         locked = true;
-        digitalWrite(GREEN_LED_PIN, LOW);
-        digitalWrite(RED_LED_PIN, HIGH);
+        digitalWrite(SUCCESS_LED_PIN, LOW);
+        digitalWrite(FAILURE_LED_PIN, HIGH);
         myServo.write(90);
         Serial.println("Locked State");        
       }
@@ -125,8 +125,8 @@ void loop() {
         
         locked = false;
         myServo.write(0);
-        digitalWrite(GREEN_LED_PIN, HIGH);
-        digitalWrite(RED_LED_PIN, LOW);
+        digitalWrite(SUCCESS_LED_PIN, HIGH);
+        digitalWrite(FAILURE_LED_PIN, LOW);
         Serial.println("Unlocked State");
         numberOfKnocks = 0;
       }
