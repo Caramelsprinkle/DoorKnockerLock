@@ -1,6 +1,6 @@
 #include <Servo.h>
 
-// Want to add:
+// Project Specifications:
 //  1. The piezo should be able to hear knocks at certain ranges and have a cooldown to prevent sending multiple signals using millis()
 //  2. Make an interrupt service routine for when the piezo recognizes a knock 
 //    NOTE1: To see that it works, an LED should light up whenever the Piezo recognizes a knock
@@ -16,6 +16,9 @@
 //            - time after the first knock in millis
 //    NOTE2: Two LEDS: One lights up if the sequence is incorrect and the other lights up if sequence is correct
 //  5. Result of listening state is compared against savedSequence to see if accepted
+//    NOTE1: First, match the number of elements in the outer array of both the saved sequence and the listened sequence of knocks
+//            Second, loop through a range of the size of the array and check both knock and time range are acceptable
+//            Return true if acceptable within range, return false on the first detection of a non-acceptable knock 
 //  6. Set two leniency numbers to create a range for what is considered as an acceptable knock range
 //    EXAMPLE: int knockLeniency = 100. Knock value in savedSequence[0] = 550. Acceptable knock range = 450 - 650.
 //    EXAMPLE (in milliseconds): int timeLeninecy = 300. time value in savedSequence[0] = 2300 (2.3 seconds). Acceptable range: 2000 - 2600.
@@ -24,11 +27,11 @@
 
 #define PIEZO_SENSOR_PIN A0     // Outputs electrical signal from vibrations
 #define REDO_SEQUENCE_BUTTON 2  // Button sets listening state
+#define LISTENING_LED_PIN 10    // Blue LED   : Lights up after button press and is listening to rewrite sequence. Blinks while in listening after first knock
 #define KNOCK_LED_PIN 11        // Yellow LED : Lights up when Piezo recognizes knocks
 #define SUCCESS_LED_PIN 12      // Green LED  : Lights up when sequence is correct   
 #define FAILURE_LED_PIN 13      // Red LED    : Lights up when sequence is incorrect
-#define LISTENING_LED_PIN 10    // Blue LED   : Lights up after button press and is listening to rewrite sequence. Blinks while in listening after first knock
-#define SERVO_PIN 9             // Considered as "Locked" at 90 deg and "Unlocked" at 0
+#define SERVO_PIN 4             // Considered as "Locked" at 90 deg and "Unlocked" at 0
 
 Servo myServo;
 
@@ -60,12 +63,12 @@ void setup() {
   Serial.begin(9600);
 
   myServo.attach(SERVO_PIN);
+  pinMode(LISTENING_LED_PIN, OUTPUT);
   pinMode(KNOCK_LED_PIN, OUTPUT);
   pinMode(FAILURE_LED_PIN, OUTPUT);
   pinMode(SUCCESS_LED_PIN, OUTPUT);
   pinMode(REDO_SEQUENCE_BUTTON, INPUT);
 
-  digitalWrite(SUCCESS_LED_PIN, HIGH);
   myServo.write(0);
   Serial.println("Unlocked State");
 }
