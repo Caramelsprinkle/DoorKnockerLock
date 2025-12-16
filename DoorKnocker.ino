@@ -1,7 +1,29 @@
 #include <Servo.h>
 
-#define PIEZO_PIN A0
-#define BUTTON 9
+// Want to add:
+//  1. The piezo should be able to hear knocks at certain ranges and have a cooldown to prevent sending multiple signals using millis()
+//  2. Make an interrupt service routine for when the piezo recognizes a knock 
+//    NOTE1: To see that it works, an LED should light up whenever the Piezo recognizes a knock
+//  3. The button, when pressed, should record the next 5 seconds (max) to rewrite to EEPROM a new sequence of knocks to remember
+//    NOTE1: current button is only used to reset the servo motor's orientation. Need to change that
+//    NOTE2: The button can be pressed again before 5 seconds ends the sequence reading earlier
+//    NOTE3: The button should be attached to an interrupt service routine (I think). 
+//    NOTE4: A single LED light should light up to show when it's recording.
+//  4. When not in recording state - when in idle state - and the piezo receives a knock for the first time,
+//      set the controller to a listening state
+//    NOTE1: During listening state (lasts for 5 seconds after start), store data in an array of an array of: [[x1, y1], [x2, y2], ...]
+//            - the piezo's electrical signal strength 
+//            - time after the first knock in millis
+//    NOTE2: Two LEDS: One lights up if the sequence is incorrect and the other lights up if sequence is correct
+//  5. Result of listening state is compared against savedSequence to see if accepted
+//  6. Set two leniency numbers to create a range for what is considered as an acceptable knock range
+//    EXAMPLE: int knockLeniency = 100. Knock value in savedSequence[0] = 550. Acceptable knock range = 450 - 650.
+//    EXAMPLE (in milliseconds): int timeLeninecy = 300. time value in savedSequence[0] = 2300 (2.3 seconds). Acceptable range: 2000 - 2600.
+//  7. Debug
+//    log the sequence saved and sequence recorded into Serial
+
+#define PIEZO_SENSOR_PIN A0 // Outputs electrical signal from vibrations
+#define BUTTON 9 //
 #define YELLOW_LED_PIN 11
 #define GREEN_LED_PIN 12
 #define RED_LED_PIN 13
