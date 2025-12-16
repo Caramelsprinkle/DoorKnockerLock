@@ -2,8 +2,7 @@
 
 // Project Specifications:
 //  1. The piezo should be able to hear knocks at certain ranges and have a cooldown to prevent sending multiple signals using millis()
-//  2. Make an interrupt service routine for when the piezo recognizes a knock 
-//    NOTE1: To see that it works, an LED should light up whenever the Piezo recognizes a knock
+//  2. Make it so that an LED should light up whenever the Piezo recognizes a knock
 //  3. The button, when pressed, should record the next 5 seconds (max) to rewrite to EEPROM a new sequence of knocks to remember
 //    NOTE1: current button is only used to reset the servo motor's orientation. Need to change that
 //    NOTE2: The button can be pressed again before 5 seconds ends the sequence reading earlier
@@ -78,8 +77,8 @@ bool checkForKnock(int knockValue) {
     digitalWrite(KNOCK_LED_PIN, HIGH);
     delay(20);
     digitalWrite(KNOCK_LED_PIN, LOW);
-    //Serial.print("Knock value: ");
-    //Serial.println(knockValue);
+    Serial.print("Knock value: ");
+    Serial.println(knockValue);
     return true;
   } else {
     //Serial.print("Invalid knock value: ");
@@ -91,49 +90,55 @@ bool checkForKnock(int knockValue) {
 void loop() {
   unsigned long timeNow = millis();
 
-  if (locked == false || timeNow - lastTimeLocked >= 10000) {
-    buttonValue = digitalRead(REDO_SEQUENCE_BUTTON);
+  knockValue = analogRead(PIEZO_SENSOR_PIN);
+  
+  if (knockValue > 10) {
+    Serial.println(knockValue);
+  }
+
+  // if (locked == false || timeNow - lastTimeLocked >= 10000) {
+  //   buttonValue = digitalRead(REDO_SEQUENCE_BUTTON);
     
-    if (timeNow - lastTimeButtonChanged >= debounceDelay) {
-      if (buttonValue == HIGH && timeNow - lastTimeLocked >= lockDelay) {
-        lastTimeButtonChanged = timeNow;
-        lastTimeLocked = timeNow;
+  //   if (timeNow - lastTimeButtonChanged >= debounceDelay) {
+  //     if (buttonValue == HIGH && timeNow - lastTimeLocked >= lockDelay) {
+  //       lastTimeButtonChanged = timeNow;
+  //       lastTimeLocked = timeNow;
 
-        locked = true;
-        digitalWrite(SUCCESS_LED_PIN, LOW);
-        digitalWrite(FAILURE_LED_PIN, HIGH);
-        myServo.write(90);
-        Serial.println("Locked State");        
-      }
-    }
-  }
+  //       locked = true;
+  //       digitalWrite(SUCCESS_LED_PIN, LOW);
+  //       digitalWrite(FAILURE_LED_PIN, HIGH);
+  //       myServo.write(90);
+  //       Serial.println("Locked State");        
+  //     }
+  //   }
+  // }
 
-  if (locked == true) {
-    if (timeNow - lastTimeKnocked >= knockDelay) {
-      lastTimeKnocked = timeNow;
-      knockValue = analogRead(PIEZO_SENSOR_PIN);
-    }
+  // if (locked == true) {
+  //   if (timeNow - lastTimeKnocked >= knockDelay) {
+  //     lastTimeKnocked = timeNow;
+  //     knockValue = analogRead(PIEZO_SENSOR_PIN);
+  //   }
 
-    if(numberOfKnocks < 3 && knockValue > 0) {
-      if (checkForKnock(knockValue) == true) {
-        numberOfKnocks++;
-      }
-      //Serial.print("Knocked ");
-      //Serial.print(numberOfKnocks);
-      //Serial.println(" times");
-    }
+  //   if(numberOfKnocks < 3 && knockValue > 0) {
+  //     if (checkForKnock(knockValue) == true) {
+  //       numberOfKnocks++;
+  //     }
+  //     //Serial.print("Knocked ");
+  //     //Serial.print(numberOfKnocks);
+  //     //Serial.println(" times");
+  //   }
 
-    if (timeNow - lastTimeUnlocked >= lockDelay) {
-      if(numberOfKnocks >= 3) {
-        lastTimeUnlocked = timeNow;
+  //   if (timeNow - lastTimeUnlocked >= lockDelay) {
+  //     if(numberOfKnocks >= 3) {
+  //       lastTimeUnlocked = timeNow;
         
-        locked = false;
-        myServo.write(0);
-        digitalWrite(SUCCESS_LED_PIN, HIGH);
-        digitalWrite(FAILURE_LED_PIN, LOW);
-        Serial.println("Unlocked State");
-        numberOfKnocks = 0;
-      }
-    }
-  }
+  //       locked = false;
+  //       myServo.write(0);
+  //       digitalWrite(SUCCESS_LED_PIN, HIGH);
+  //       digitalWrite(FAILURE_LED_PIN, LOW);
+  //       Serial.println("Unlocked State");
+  //       numberOfKnocks = 0;
+  //     }
+  //   }
+  // }
 }
