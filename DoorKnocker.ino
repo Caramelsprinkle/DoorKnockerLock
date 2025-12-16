@@ -115,6 +115,8 @@ void setup() {
   pinMode(SUCCESS_LED_PIN, OUTPUT);
   pinMode(REDO_SEQUENCE_BUTTON, INPUT);
 
+  delay(1000);
+
   myServo.write(0);
   Serial.println("Unlocked State");
 }
@@ -126,11 +128,10 @@ bool checkForKnock(int knockValue) {
     Serial.print("Knock value: ");
     Serial.println(knockValue);
     return true;
-  } else {
-    //Serial.print("Invalid knock value: ");
-    //Serial.println(knockValue);
-    return false;
   }
+  //Serial.print("Invalid knock value: ");
+  //Serial.println(knockValue);
+  return false;
 }
 
 // States:
@@ -147,6 +148,10 @@ bool compareKnockSequence(int knockSequence[20], unsigned long timeSequence[20],
   //unsigned int storedKnockSequence[20] = storedKnockSequence = EEPROM.get(EEPROM_ADDRESS_UNIT_KNOCK_SEQUENCE);
   //unsigned long storedTimeSequence[20] = EEPROM.get(EEPROM_ADDRESS_UNIT_TIME_SEQUENCE);
   //unsigned int storedKnockCount = EEPROM.read(EEPROM_ADDRESS_UNIT_KNOCK_COUNT);
+
+  if (storedKnockCount == 0) {
+    return false;
+  }
 
   if (knockCount != storedKnockCount) {
     return false;
@@ -174,11 +179,14 @@ void loop() {
       isListening = false;
       index = 0;
       digitalWrite(LISTENING_LED_PIN, HIGH);
+      digitalWrite(LISTENING_LED_PIN, HIGH);
+      Serial.println("Recording new sequence");
     }
   }
 
   if (isRecording) {
     unsigned int knockValue = 0;
+    Serial.println("recording");
     if(currentTime - lastTimeKnocked >= knockDelay) {
       lastTimeKnocked = millis();
       knockValue = analogRead(PIEZO_SENSOR_PIN);
@@ -192,7 +200,7 @@ void loop() {
       knockCount++;
       index++;
     }
-      hasKnocked = false;
+    hasKnocked = false;
 
     if (currentTime - lastTimeButtonChanged >= debounceDelay) {
       if (digitalRead(REDO_SEQUENCE_BUTTON) == HIGH) {
@@ -210,6 +218,7 @@ void loop() {
         // EEPROM.write(EEPROM_ADDRESS_UNIT_KNOCK_COUNT, knockCount);
         storedKnockCount = knockCount;
         knockCount = 0;
+        index = 0;
       }
     }
 
@@ -218,6 +227,7 @@ void loop() {
       digitalWrite(LISTENING_LED_PIN, LOW);
       storedKnockCount = knockCount;
       knockCount = 0;
+      index = 0;
     }
   } else {
     if (isLocked == true) {
@@ -282,26 +292,27 @@ void loop() {
         myServo.write(lockedState);
       }
     }
-  
-    if (!knockLEDState) {
-      if (currentTime - knockLEDLastOn >= knockLEDDelay) {
-        digitalWrite(KNOCK_LED_PIN, LOW);
-      }
+  }
+    
+  if (knockLEDState) {
+    if (currentTime - knockLEDLastOn >= knockLEDDelay) {
+      knockLEDState = false;
+      digitalWrite(KNOCK_LED_PIN, LOW);
     }
+  }
 
-    if (isListening) {
-      if (currentTime - listeningBlinkLEDLastOn >= listeningBlinkLEDDelay) {
-        listeningBlinkLEDLastOn = millis();
-        digitalWrite(LISTENING_LED_PIN, !digitalRead(LISTENING_LED_PIN));
-      }
+  if (isListening) {
+    if (currentTime - listeningBlinkLEDLastOn >= listeningBlinkLEDDelay) {
+      listeningBlinkLEDLastOn = millis();
+      digitalWrite(LISTENING_LED_PIN, !digitalRead(LISTENING_LED_PIN));
     }
+  }
 
-    if (currentTime - successLEDLastOn >= successLEDDelay) {
-      digitalWrite(SUCCESS_LED_PIN, LOW);
-    }
-
-    if (currentTime - failureLEDLastOn >= failureLEDDelay) {
-      digitalWrite(FAILURE_LED_PIN, LOW);
-    }
+  if (currentTime - successLEDLastOn >= successLEDDelay) {
+    digitalWrite(SUCCESS_LED_PIN, LOW);
+  }
+   
+  if (currentTime - failureLEDLastOn >= failureLEDDelay) {
+    digitalWrite(FAILURE_LED_PIN, LOW);   
   }
 }
