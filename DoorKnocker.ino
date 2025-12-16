@@ -23,11 +23,12 @@
 //    log the sequence saved and sequence recorded into Serial
 
 #define PIEZO_SENSOR_PIN A0     // Outputs electrical signal from vibrations
-#define REDO_SEQUENCE_BUTTON 9  // Button sets listening state
+#define REDO_SEQUENCE_BUTTON 2  // Button sets listening state
 #define KNOCK_LED_PIN 11        // Yellow LED : Lights up when Piezo recognizes knocks
 #define SUCCESS_LED_PIN 12      // Green LED  : Lights up when sequence is correct   
 #define FAILURE_LED_PIN 13      // Red LED    : Lights up when sequence is incorrect
-#define SERVO_PIN 10            // Considered as "Locked" at 90 deg and "Unlocked" at 0
+#define LISTENING_LED_PIN 10    // Blue LED   : Lights up after button press and is listening to rewrite sequence. Blinks while in listening after first knock
+#define SERVO_PIN 9             // Considered as "Locked" at 90 deg and "Unlocked" at 0
 
 Servo myServo;
 
@@ -56,12 +57,13 @@ unsigned long lastTimeButtonChanged = millis();
 
 void setup() {
   // put your setup code here, to run once:
+  Serial.begin(9600);
+
   myServo.attach(SERVO_PIN);
   pinMode(KNOCK_LED_PIN, OUTPUT);
   pinMode(FAILURE_LED_PIN, OUTPUT);
   pinMode(SUCCESS_LED_PIN, OUTPUT);
   pinMode(REDO_SEQUENCE_BUTTON, INPUT);
-  Serial.begin(9600);
 
   digitalWrite(SUCCESS_LED_PIN, HIGH);
   myServo.write(0);
@@ -84,7 +86,6 @@ bool checkForKnock(int knockValue) {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   unsigned long timeNow = millis();
 
   if (locked == false || timeNow - lastTimeLocked >= 10000) {
@@ -107,7 +108,7 @@ void loop() {
   if (locked == true) {
     if (timeNow - lastTimeKnocked >= knockDelay) {
       lastTimeKnocked = timeNow;
-      knockValue = analogRead(PIEZO_PIN);
+      knockValue = analogRead(PIEZO_SENSOR_PIN);
     }
 
     if(numberOfKnocks < 3 && knockValue > 0) {
