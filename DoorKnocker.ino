@@ -39,8 +39,7 @@
 Servo myServo;
 
 // Servo variables
-const unsigned long timeUntilLock = 10000;  // in ms. 10 seconds 
-const unsigned long lockDelay = 1000;       
+const unsigned long timeUntilLock = 10000;  // in ms. 10 seconds   
 const unsigned int lockedState = 90;
 const unsigned int unlockedState = 0;
 
@@ -89,8 +88,8 @@ unsigned int index = 0;
 bool hasKnocked = false;
 bool hasKnockedPhrase = false;
 
-const unsigned long timeLeniency = 300;
-const unsigned int knockLeniency = 30;
+const unsigned long timeLeniency = 3000;
+const unsigned int knockLeniency = 300;
 
 // Stand in for EEPROM
 unsigned int storedKnockValuesSequence[20] = {};
@@ -117,7 +116,7 @@ void setup() {
 
   delay(1000);
 
-  myServo.write(0);
+  myServo.write(unlockedState);
   Serial.println("Unlocked State");
 }
 
@@ -159,9 +158,11 @@ bool compareKnockSequence(int knockSequence[20], unsigned long timeSequence[20],
 
   for (int i = 0; i < knockCount; i++) {
     if (knockSequence[i] <= storedKnockValuesSequence[i] + knockLeniency && knockSequence[i] >= storedKnockValuesSequence[i] - knockLeniency) {
+      Serial.println(storedKnockValuesSequence[i]);
       return false;
     }
     if (timeSequence[i] <= storedTimeSequence[i] + timeLeniency && timeSequence[i] >= storedTimeSequence[i] - timeLeniency) {
+      Serial.println(storedTimeSequence[i]);
       return false;
     }
   }
@@ -186,7 +187,6 @@ void loop() {
 
   if (isRecording) {
     unsigned int knockValue = 0;
-    Serial.println("recording");
     if(currentTime - lastTimeKnocked >= knockDelay) {
       lastTimeKnocked = millis();
       knockValue = analogRead(PIEZO_SENSOR_PIN);
@@ -262,12 +262,14 @@ void loop() {
           index++;
         }
         hasKnocked = false;
+
+        if (currentTime - firstKnockTimed >= firstKnockTimeout) {
+          hasKnockedPhrase = true;
+          isListening = false;
+          index = 0;
+        }
       }
 
-      if (currentTime - firstKnockTimed >= firstKnockTimeout) {
-        hasKnockedPhrase = true;
-        isListening = false;
-      }
 
       // Unlocked after passing comparison
       if (hasKnockedPhrase) {
@@ -282,12 +284,13 @@ void loop() {
         } else {
           failureLEDLastOn = millis();
           digitalWrite(FAILURE_LED_PIN, HIGH);
+          Serial.println("Failed to unlock");
         }
         knockCount = 0;
         hasKnockedPhrase = false;
       }
     } else {
-      if (currentTime - lastTimeUnlocked >= lockDelay) {
+      if (currentTime - lastTimeUnlocked >= timeUntilLock) {
         isLocked = true;
         myServo.write(lockedState);
       }
