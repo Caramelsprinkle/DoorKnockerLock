@@ -39,22 +39,24 @@
 Servo myServo;
 
 // Servo variables
-const unsigned long timeUntilLock = 10000;  // in ms. 10 seconds   
-const unsigned int lockedState = 90;
+const unsigned long timeUntilLock = 10000;  // stays open for 10 seconds before locking again  
+const unsigned int lockedState = 90;        // degree angle the servo spins to 
 const unsigned int unlockedState = 0;
+const unsigned long timeForServoLock = 800;
 
 unsigned long lastTimeLocked = millis();
 unsigned long lastTimeUnlocked = millis();
 bool isLocked = false;
 
+
 // Piezo variables
-const int minKnockTreshold = 10;
-const int maxKnockTreshold = 100;
+const int minKnockTreshold = 10;    // Knocks are only recognized if Piezo sends a signal above 10 and below 180
+const int maxKnockTreshold = 180;
 bool isRecording = false;
 bool isListening = false;
 
 unsigned long lastTimeKnocked = millis();
-const unsigned long knockDelay = 50;
+const unsigned long knockDelay = 80;
 
 unsigned long firstKnockTimed = millis();
 const unsigned long firstKnockTimeout = 5000;
@@ -81,19 +83,19 @@ unsigned long failureLEDLastOn = millis();
 // Miscellaneous
 const unsigned long recordingDuration = 5000; 
 
-int knockValuesSequence[20] = {};
-unsigned long timeSequence[20] = {};
+int knockValuesSequence[20] = {};       // Records knock values (after initial knock) to be compared against stored knockvalues
+unsigned long timeSequence[20] = {};    // Stores time of when knock occurs ^
 unsigned int index = 0;
 
 bool hasKnocked = false;
 bool hasKnockedPhrase = false;
 
-const unsigned long timeLeniency = 3000;
-const unsigned int knockLeniency = 300;
+const unsigned long timeLeniency = 300; // 0.3 second leniency for knock comparison
+const unsigned int knockLeniency = 30;  // 30 analog reading leniency for knock comparison
 
-// Stand in for EEPROM
-unsigned int storedKnockValuesSequence[20] = {};
-unsigned long storedTimeSequence[20] = {};
+// Stand in for EEPROM. Will need to use Address + 1 to store each analog and millis value. Didn't have time.
+unsigned int storedKnockValuesSequence[20] = {};  // Stores knock values to be compared later as the passcode
+unsigned long storedTimeSequence[20] = {};        // Stores time of when knock occurs ^
 unsigned int storedKnockCount = 0;
 
 // TODO:  Implement save function of knock timing patterns to EEPROM
@@ -114,10 +116,13 @@ void setup() {
   pinMode(SUCCESS_LED_PIN, OUTPUT);
   pinMode(REDO_SEQUENCE_BUTTON, INPUT);
 
-  delay(1000);
+  delay(timeForServoLock);
 
-  myServo.write(unlockedState);
-  Serial.println("Unlocked State");
+  myServo.write(lockedState);
+
+  delay(timeForServoLock); // delay so that the servo's vibration isn't captured by the Piezo
+
+  Serial.println("Locked State");
 }
 
 bool checkForKnock(int knockValue) {
@@ -135,7 +140,7 @@ bool checkForKnock(int knockValue) {
 
 // States:
 //  Piezo:
-//  - Idle
+//  - Idle (not represented with boolean)
 //  - Listening
 //  - Recording
 //
@@ -148,14 +153,18 @@ bool compareKnockSequence(int knockSequence[20], unsigned long timeSequence[20],
   //unsigned long storedTimeSequence[20] = EEPROM.get(EEPROM_ADDRESS_UNIT_TIME_SEQUENCE);
   //unsigned int storedKnockCount = EEPROM.read(EEPROM_ADDRESS_UNIT_KNOCK_COUNT);
 
-  if (storedKnockCount == 0) {
+  if (storedKnockCount == 0) {  // Checks if a passcode has been set
+    Serial.println("Sequence has not been set yet");
     return false;
   }
 
-  if (knockCount != storedKnockCount) {
+  if (knockCount != storedKnockCount) { // Checks if passcode and most recent attempt has matching number of knocks
+    Serial.print("storedKnockCount: ");
+    Serial.println(storedKnockCount);
     return false;
   }
-
+  
+  // Checks that each element in the two arrays (piezo analog read strength and recorded time of knocks) match with leniency
   for (int i = 0; i < knockCount; i++) {
     if (knockSequence[i] <= storedKnockValuesSequence[i] + knockLeniency && knockSequence[i] >= storedKnockValuesSequence[i] - knockLeniency) {
       Serial.println(storedKnockValuesSequence[i]);
@@ -167,12 +176,14 @@ bool compareKnockSequence(int knockSequence[20], unsigned long timeSequence[20],
     }
   }
   
+  Serial.println("Sequence matched");
   return true;
 }
 
 void loop() {
   unsigned long currentTime = millis();
   
+  // Press the button to record a new sequence that lasts 5 seconds
   if (currentTime - lastTimeButtonChanged >= debounceDelay) {
     if (digitalRead(REDO_SEQUENCE_BUTTON) == HIGH) {
       lastTimeButtonChanged = millis();
@@ -185,6 +196,7 @@ void loop() {
     }
   }
 
+  // when recording, check for live knocks on the Piezo and add them to the storedValues arrays  
   if (isRecording) {
     unsigned int knockValue = 0;
     if(currentTime - lastTimeKnocked >= knockDelay) {
@@ -202,6 +214,7 @@ void loop() {
     }
     hasKnocked = false;
 
+    // Option 1: end the sequence early by pressing the button a second time while the blue LED is still on
     if (currentTime - lastTimeButtonChanged >= debounceDelay) {
       if (digitalRead(REDO_SEQUENCE_BUTTON) == HIGH) {
         lastTimeButtonChanged = millis();
@@ -222,6 +235,7 @@ void loop() {
       }
     }
 
+    // Option 2: The sequence is saved automatically after 5 seconds have passed
     if (currentTime - lastTimeButtonChanged >= recordingDuration) {
       isRecording = false;
       digitalWrite(LISTENING_LED_PIN, LOW);
@@ -229,10 +243,9 @@ void loop() {
       knockCount = 0;
       index = 0;
     }
-  } else {
+  } else {  // if not recording, then it is idle
     if (isLocked == true) {
-      // stub
-      if (!isListening) { // while idle
+      if (!isListening) { // While idle, it listens for a first knock to start listening (not recorded as part of the passcode)
         unsigned int knockValue = 0;
         if(currentTime - lastTimeKnocked >= knockDelay) {
           lastTimeKnocked = millis();
@@ -240,22 +253,22 @@ void loop() {
           hasKnocked = true;
         }
 
-        if (hasKnocked && checkForKnock(knockValue)) {
+        if (hasKnocked && checkForKnock(knockValue)) { // knock has been detected and the controller is now listening for the sequence
           isListening = true;
           index = 0;
           lastTimeKnocked = millis();
           firstKnockTimed = millis();
         } 
         hasKnocked = false;
-      } else {
+      } else { // The controller listens for 5 seconds
         unsigned int knockValue = 0;
-        if (currentTime - lastTimeKnocked >= knockDelay) {
+        if (currentTime - lastTimeKnocked >= knockDelay) { 
           lastTimeKnocked = millis();
           knockValue = analogRead(PIEZO_SENSOR_PIN);
           hasKnocked = true;
         }
 
-        if (hasKnocked && checkForKnock(knockValue)) {
+        if (hasKnocked && checkForKnock(knockValue)) { // if a knock is recognized while the controller is listening for the sequence, add values to array
           knockValuesSequence[index] = knockValue;
           timeSequence[index] = millis();
           knockCount++;
@@ -263,7 +276,7 @@ void loop() {
         }
         hasKnocked = false;
 
-        if (currentTime - firstKnockTimed >= firstKnockTimeout) {
+        if (currentTime - firstKnockTimed >= firstKnockTimeout) { // When timed-out, the knock phrase is ready to be compared
           hasKnockedPhrase = true;
           isListening = false;
           index = 0;
@@ -273,7 +286,7 @@ void loop() {
 
       // Unlocked after passing comparison
       if (hasKnockedPhrase) {
-        if (compareKnockSequence(knockValuesSequence, timeSequence, knockCount)) {
+        if (compareKnockSequence(knockValuesSequence, timeSequence, knockCount)) {  // Valid knock passcode
           isLocked = false;
           myServo.write(unlockedState);
           lastTimeUnlocked = millis();
@@ -281,22 +294,25 @@ void loop() {
           successLEDLastOn = millis();
           digitalWrite(SUCCESS_LED_PIN, HIGH);
           digitalWrite(LISTENING_LED_PIN, LOW);
-        } else {
+        } else {                                                                    // Invalid knock passcode
           failureLEDLastOn = millis();
           digitalWrite(FAILURE_LED_PIN, HIGH);
           Serial.println("Failed to unlock");
         }
         knockCount = 0;
         hasKnockedPhrase = false;
+        delay(timeForServoLock);
       }
-    } else {
+    } else { // controller has unlocked after providing correct passcode
       if (currentTime - lastTimeUnlocked >= timeUntilLock) {
         isLocked = true;
         myServo.write(lockedState);
+        delay(timeForServoLock); // delay to prevent piezo from receiving servo's vibrations
       }
     }
   }
     
+  // Yellow LED lights up for a short period when a knock is detected
   if (knockLEDState) {
     if (currentTime - knockLEDLastOn >= knockLEDDelay) {
       knockLEDState = false;
@@ -304,6 +320,7 @@ void loop() {
     }
   }
 
+  // Blue LED blinks when listening 
   if (isListening) {
     if (currentTime - listeningBlinkLEDLastOn >= listeningBlinkLEDDelay) {
       listeningBlinkLEDLastOn = millis();
@@ -311,7 +328,8 @@ void loop() {
     }
   }
 
-  if (currentTime - successLEDLastOn >= successLEDDelay) {
+  // Success and Failure LED resets automatically after 1 second has passed
+  if (currentTime - successLEDLastOn >= successLEDDelay) { 
     digitalWrite(SUCCESS_LED_PIN, LOW);
   }
    
@@ -319,3 +337,7 @@ void loop() {
     digitalWrite(FAILURE_LED_PIN, LOW);   
   }
 }
+
+// Considerations for improvements:
+//  - Figure out how to implement it into EEPROM
+//  - Use moving average to smooth out the knock instead of taking the first value and blocking the rest with millis (only thought about this today)
