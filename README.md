@@ -12,6 +12,9 @@ Arduino setup includes:
 - 4x 220 Ohm resistors
 - 1x 1,000,000 Ohm resistor
 
+## Wiring
+![Arduino UNO wiring](SoftwareEngineeringFP_DoorKnockerLock.png)
+
 ## LED Info
 Red LED: Lights up for one second when the sequence pattern does not match saved sequence in either timing or knock intensity
 Green LED: Lights up for one second when the sequence pattern does match saved sequence
